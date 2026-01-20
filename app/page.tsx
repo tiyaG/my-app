@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -7,11 +8,18 @@ import {
   Bold, Italic, List
 } from 'lucide-react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic'; // Added built-in dynamic tool
 import { supabase } from '../lib/supabase'; 
 
 // --- TIPTAP IMPORTS ---
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor } from '@tiptap/react'; // Removed EditorContent from here
 import StarterKit from '@tiptap/starter-kit';
+
+// --- DYNAMIC FIX FOR SSR ERROR ---
+const EditorContent = dynamic(
+  () => import('@tiptap/react').then((m) => m.EditorContent),
+  { ssr: false }
+);
 
 export default function EmpoweringTalks() {
   // --- UI STATES ---
@@ -41,6 +49,7 @@ export default function EmpoweringTalks() {
   const editor = useEditor({
     extensions: [StarterKit],
     content: '',
+    immediatelyRender: false, // Added this fix to prevent hydration mismatch
     onUpdate: ({ editor }) => {
       setNewContent(editor.getHTML());
     },
@@ -202,7 +211,7 @@ export default function EmpoweringTalks() {
         </div>
       </main>
 
-      {/* --- MODAL: CREATE ANNOUNCEMENT (TIPTAP INTEGRATED) --- */}
+      {/* --- MODAL: CREATE ANNOUNCEMENT --- */}
       <AnimatePresence>
         {showCreateModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-6">
@@ -271,14 +280,5 @@ function NavItem({ icon, label, active = false }: { icon: any, label: string, ac
     <div className={`flex items-center gap-4 px-4 py-3 rounded-2xl cursor-pointer transition ${active ? 'bg-orange-50 text-orange-600 font-bold' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-900 font-medium'}`}>
       {icon} <span>{label}</span>
     </div>
-  );
-}
-
-function ChoiceCard({ icon, title, onClick }: { icon: any, title: string, onClick: () => void }) {
-  return (
-    <button onClick={onClick} className="p-8 border-2 border-gray-50 rounded-[2rem] hover:border-orange-200 hover:bg-orange-50/30 transition flex flex-col items-center gap-3">
-      <div className="p-4 bg-white rounded-2xl shadow-sm border border-gray-50">{icon}</div>
-      <span className="font-bold text-lg">{title}</span>
-    </button>
   );
 }

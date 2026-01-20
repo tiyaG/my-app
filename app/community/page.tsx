@@ -11,8 +11,15 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 // --- TIPTAP IMPORTS ---
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import dynamic from 'next/dynamic';
+
+// FIXED: Dynamically import EditorContent to prevent ANY server-side rendering
+const EditorContent = dynamic(
+  () => import('@tiptap/react').then((m) => m.EditorContent),
+  { ssr: false }
+);
 
 export default function CommunityPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,6 +37,7 @@ export default function CommunityPage() {
   const editor = useEditor({
     extensions: [StarterKit],
     content: '',
+    immediatelyRender: false, 
     onUpdate: ({ editor }) => {
       setContent(editor.getHTML());
     },
@@ -121,7 +129,13 @@ export default function CommunityPage() {
             <div className="flex items-center gap-4 bg-orange-600 px-4 py-2 rounded-full border border-orange-400">
                <User size={16} />
                <span className="text-xs font-black uppercase tracking-tighter">{userEmail}</span>
-               <button onClick={handleLogout} className="hover:text-black transition-colors ml-2"><LogOut size={16}/></button>
+               <button 
+                onClick={handleLogout} 
+                suppressHydrationWarning
+                className="hover:text-black transition-colors ml-2"
+               >
+                <LogOut size={16}/>
+               </button>
             </div>
           </div>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -138,8 +152,7 @@ export default function CommunityPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          
-          {/* MAIN COLUMN */}
+          {/* SEARCH & ARTICLES */}
           <div className="lg:col-span-8 space-y-8">
             <div className="relative group">
               <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={24} />
@@ -162,12 +175,11 @@ export default function CommunityPage() {
                   <motion.article 
                     key={art.id || i}
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                    whileHover={{ scale: 1.01 }}
                     className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-6 group"
                   >
                     <div>
                       <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest bg-orange-50 px-3 py-1 rounded-full">{art.category}</span>
-                      <h2 className="text-2xl font-black text-gray-900 mt-3 group-hover:text-orange-500 transition-colors">{art.title}</h2>
+                      <h2 className="text-2xl font-black text-gray-900 mt-3">{art.title}</h2>
                       <p className="text-gray-400 font-bold text-sm mt-1">By {art.author}</p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -186,65 +198,47 @@ export default function CommunityPage() {
             </div>
           </div>
 
-          {/* RIGHT COLUMN */}
+          {/* SIDEBAR */}
           <div className="lg:col-span-4">
             <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl shadow-gray-200/50 border border-white sticky top-12">
-              <div className="mt-2 pt-2 border-t border-gray-50">
-                <p className="text-xs text-gray-400 font-medium italic mb-4 text-center">Share your expertise with the Hub.</p>
-                <button 
-                  onClick={() => setIsModalOpen(true)}
-                  className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-orange-100 hover:bg-orange-600 transition-all"
-                >
-                  Post an Article
-                </button>
-              </div>
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+              >
+                Post an Article
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* PUBLISH MODAL (TIPTAP VERSION) */}
+      {/* MODAL SECTION */}
       <AnimatePresence>
         {isModalOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white w-full max-w-4xl rounded-[3.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-              <div className="p-10 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 text-black">
-                <div className="flex items-center gap-3">
-                  <Edit3 className="text-orange-500" />
-                  <h2 className="text-2xl font-black uppercase italic tracking-tighter">New Insight</h2>
-                </div>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white w-full max-w-4xl rounded-[3.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden text-black">
+              <div className="p-10 border-b border-gray-100 flex justify-between items-center">
+                <h2 className="text-2xl font-black uppercase italic tracking-tighter">New Insight</h2>
                 <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-gray-200 rounded-full transition-colors"><X /></button>
               </div>
               
               <div className="p-10 space-y-8 overflow-y-auto">
-                <input type="text" placeholder="Article Title..." className="w-full text-5xl font-black outline-none placeholder:text-gray-200 text-black bg-transparent" value={title} onChange={e => setTitle(e.target.value)} />
+                <input type="text" placeholder="Article Title..." className="w-full text-5xl font-black outline-none placeholder:text-gray-200" value={title} onChange={e => setTitle(e.target.value)} />
                 
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="flex-1 relative">
-                    <User className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <div className="w-full pl-14 pr-4 py-5 bg-gray-100 rounded-2xl font-bold text-gray-500 border-none"> Posting as: {userEmail}</div>
-                  </div>
-                  <div className="relative">
-                    <Hash className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <select className="pl-14 pr-10 py-5 bg-gray-50 rounded-2xl font-bold outline-orange-500 border-none appearance-none text-black" value={category} onChange={e => setCategory(e.target.value)}>
-                      <option>Intelligence</option><option>Web3</option><option>Civic</option>
-                    </select>
-                  </div>
-                </div>
-
                 <div className="border border-gray-100 rounded-2xl overflow-hidden">
-                   {/* TOOLBAR */}
+                  {/* TOOLBAR */}
                   <div className="flex gap-2 p-3 bg-gray-50 border-b border-gray-100">
                     <button onClick={() => editor?.chain().focus().toggleBold().run()} className={`p-2 rounded ${editor?.isActive('bold') ? 'bg-orange-100 text-orange-600' : 'text-gray-400'}`}><Bold size={18}/></button>
                     <button onClick={() => editor?.chain().focus().toggleItalic().run()} className={`p-2 rounded ${editor?.isActive('italic') ? 'bg-orange-100 text-orange-600' : 'text-gray-400'}`}><Italic size={18}/></button>
                     <button onClick={() => editor?.chain().focus().toggleBulletList().run()} className={`p-2 rounded ${editor?.isActive('bulletList') ? 'bg-orange-100 text-orange-600' : 'text-gray-400'}`}><List size={18}/></button>
                   </div>
+                  {/* TIPTAP EDITOR MOUNT POINT */}
                   <EditorContent editor={editor} />
                 </div>
               </div>
 
-              <div className="p-10 border-t border-gray-100 flex justify-end bg-gray-50/50">
-                <button onClick={handlePublish} className="bg-black text-white px-12 py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-sm shadow-xl hover:bg-orange-600 transition-all">Publish Now</button>
+              <div className="p-10 border-t border-gray-100 flex justify-end">
+                <button onClick={handlePublish} className="bg-black text-white px-12 py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-sm hover:bg-orange-600 transition-all">Publish Now</button>
               </div>
             </motion.div>
           </motion.div>
@@ -255,19 +249,17 @@ export default function CommunityPage() {
       <AnimatePresence>
         {selectedArticle && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white w-full max-w-4xl rounded-[3.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-                <div className="p-10 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white w-full max-w-4xl rounded-[3.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden text-black">
+                <div className="p-10 border-b border-gray-100 flex justify-between items-center">
                     <span className="bg-orange-100 text-orange-600 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest">{selectedArticle.category}</span>
-                    <button onClick={() => setSelectedArticle(null)} className="p-3 hover:bg-gray-200 rounded-full transition-colors text-black"><X /></button>
+                    <button onClick={() => setSelectedArticle(null)} className="p-3 hover:bg-gray-200 rounded-full text-black"><X /></button>
                 </div>
                 <div className="p-10 md:p-16 overflow-y-auto">
-                    <h1 className="text-5xl font-black text-gray-900 leading-tight mb-4 italic tracking-tighter">{selectedArticle.title}</h1>
-                    <p className="text-gray-400 font-bold text-lg mb-10">By {selectedArticle.author}</p>
-                    {/* Rendered content with tailwind prose for clean styling */}
-                    <div className="prose prose-lg max-w-none text-black font-medium" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+                    <h1 className="text-5xl font-black leading-tight mb-4 italic tracking-tighter">{selectedArticle.title}</h1>
+                    <div className="prose prose-lg max-w-none font-medium" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
                 </div>
-                <div className="p-10 border-t border-gray-100 flex justify-end bg-gray-50/50">
-                    <button onClick={() => setSelectedArticle(null)} className="bg-black text-white px-10 py-4 rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-orange-600 transition-all">Close</button>
+                <div className="p-10 border-t border-gray-100 flex justify-end">
+                    <button onClick={() => setSelectedArticle(null)} className="bg-black text-white px-10 py-4 rounded-[2rem] font-black uppercase text-xs hover:bg-orange-600 transition-all">Close</button>
                 </div>
             </motion.div>
             </motion.div>
