@@ -3,19 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home, FolderKanban, Users, Lightbulb, UserCircle, 
-  MapPin, Video, CheckCircle2, X, Briefcase, Plus, Trash2, Megaphone, Link as LinkIcon
+  MapPin, Video, CheckCircle2, X, Briefcase, Plus, Trash2, Megaphone, Link as LinkIcon,
+  Bold, Italic, List
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase'; 
 
-// --- UPDATED RICH TEXT EDITOR IMPORT ---
-import dynamic from 'next/dynamic';
-// Use react-quill-new to fix the React 18/19 findDOMNode error
-const ReactQuill = dynamic(() => import('react-quill-new'), { 
-  ssr: false,
-  loading: () => <div className="h-full w-full bg-gray-100 animate-pulse rounded-2xl" />
-});
-import 'react-quill-new/dist/quill.snow.css';
+// --- TIPTAP IMPORTS ---
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 
 export default function EmpoweringTalks() {
   // --- UI STATES ---
@@ -41,16 +37,27 @@ export default function EmpoweringTalks() {
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
 
-  // Rich Text Editor Toolbar Config
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, false] }],
-      ['bold', 'italic', 'underline'],
-      [{ 'color': [] }],
-      ['link'],
-      ['clean']
-    ],
-  };
+  // --- TIPTAP EDITOR INITIALIZATION ---
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: '',
+    onUpdate: ({ editor }) => {
+      setNewContent(editor.getHTML());
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm focus:outline-none max-w-none p-4 min-h-[150px]',
+      },
+    },
+  });
+
+  // Sync editor content when modal opens/resets
+  useEffect(() => {
+    if (showCreateModal && editor) {
+      editor.commands.setContent('');
+      setNewContent('');
+    }
+  }, [showCreateModal, editor]);
 
   const fruitAvatars: any = {
     apple: 'https://api.dicebear.com/7.x/notionists/svg?seed=apple',
@@ -71,7 +78,6 @@ export default function EmpoweringTalks() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       if (user.email === 'anannyagairola@gmail.com') setIsAdmin(true);
-
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
       if (profile) {
         setProfileData({
@@ -82,7 +88,6 @@ export default function EmpoweringTalks() {
           website: profile.website || ''
         });
       }
-
       const { data: ann } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
       if (ann) setAnnouncements(ann);
     }
@@ -90,7 +95,7 @@ export default function EmpoweringTalks() {
   };
 
   const handlePostAnnouncement = async () => {
-    if (!newTitle || !newContent) return alert("Please fill both fields");
+    if (!newTitle || !newContent || newContent === '<p></p>') return alert("Please fill both fields");
     const { error } = await supabase.from('announcements').insert([{ title: newTitle, content: newContent }]);
     if (!error) {
       setShowCreateModal(false);
@@ -109,7 +114,6 @@ export default function EmpoweringTalks() {
 
   return (
     <div className="flex min-h-screen bg-[#F8F9FA] text-[#333]">
-      
       {/* --- SIDEBAR NAVIGATION --- */}
       <nav className="w-64 bg-white border-r border-gray-200 p-6 flex flex-col gap-2">
         <div className="text-2xl font-black text-orange-500 mb-10 px-2 uppercase tracking-tighter">
@@ -126,7 +130,6 @@ export default function EmpoweringTalks() {
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 p-10 overflow-y-auto">
-        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* PROFILE SUMMARY */}
           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 relative overflow-hidden">
@@ -199,29 +202,7 @@ export default function EmpoweringTalks() {
         </div>
       </main>
 
-      {/* --- MODAL: ANNOUNCEMENT HISTORY --- */}
-      <AnimatePresence>
-        {showHistoryModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white w-full max-w-2xl max-h-[80vh] rounded-[3rem] p-10 overflow-y-auto relative">
-              <button onClick={() => setShowHistoryModal(false)} className="absolute top-8 right-8 text-gray-400 hover:text-black font-black"><X size={32}/></button>
-              <h2 className="text-3xl font-black mb-8 italic text-gray-900 uppercase">Archive.</h2>
-              <div className="space-y-8">
-                {announcements.map((item) => (
-                  <div key={item.id} className="border-b border-gray-100 pb-8">
-                    <span className="text-[10px] font-black text-orange-400 tracking-[0.2em]">{new Date(item.created_at).toLocaleDateString()}</span>
-                    <h3 className="text-2xl font-black text-gray-900 mt-1 uppercase">{item.title}</h3>
-                    <div className="mt-4 text-gray-600 leading-relaxed prose max-w-none" dangerouslySetInnerHTML={{ __html: item.content }} />
-                    {isAdmin && <button onClick={() => handleDeleteAnnouncement(item.id)} className="text-red-500 text-[10px] font-black mt-6 flex items-center gap-1 uppercase tracking-widest border border-red-100 px-3 py-1 rounded-lg hover:bg-red-50"><Trash2 size={12}/> Remove</button>}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* --- MODAL: CREATE ANNOUNCEMENT (Admin Only) --- */}
+      {/* --- MODAL: CREATE ANNOUNCEMENT (TIPTAP INTEGRATED) --- */}
       <AnimatePresence>
         {showCreateModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-6">
@@ -233,21 +214,20 @@ export default function EmpoweringTalks() {
                   <input placeholder="Enter title..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-2 border-transparent focus:border-orange-500 outline-none" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
                 </div>
                 
-                {/* Fixed Rich Text Editor Container */}
-                <div className="h-80 flex flex-col quill-container">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2 mb-2 block">Content Body</label>
-                  <style>{`
-                    .quill-container .ql-container { border-bottom-left-radius: 1rem; border-bottom-right-radius: 1rem; background: #f9fafb; font-family: inherit; }
-                    .quill-container .ql-toolbar { border-top-left-radius: 1rem; border-top-right-radius: 1rem; background: #f9fafb; border-bottom: none !important; }
-                    .quill-container .ql-editor { font-size: 16px; font-weight: 600; }
-                  `}</style>
-                  <ReactQuill 
-                    theme="snow" 
-                    value={newContent} 
-                    onChange={setNewContent} 
-                    modules={modules} 
-                    className="flex-1 overflow-hidden" 
-                  />
+                <div className="flex flex-col bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest p-4 pb-0 block">Content Body</label>
+                  
+                  {/* TIPTAP TOOLBAR */}
+                  <div className="flex gap-2 p-2 border-b border-gray-200 bg-white/50 px-4">
+                    <button onClick={() => editor?.chain().focus().toggleBold().run()} className={`p-1 rounded ${editor?.isActive('bold') ? 'bg-orange-100 text-orange-600' : 'text-gray-400'}`}><Bold size={18}/></button>
+                    <button onClick={() => editor?.chain().focus().toggleItalic().run()} className={`p-1 rounded ${editor?.isActive('italic') ? 'bg-orange-100 text-orange-600' : 'text-gray-400'}`}><Italic size={18}/></button>
+                    <button onClick={() => editor?.chain().focus().toggleBulletList().run()} className={`p-1 rounded ${editor?.isActive('bulletList') ? 'bg-orange-100 text-orange-600' : 'text-gray-400'}`}><List size={18}/></button>
+                  </div>
+
+                  {/* TIPTAP EDITOR */}
+                  <div className="bg-white overflow-y-auto max-h-[250px] font-medium">
+                    <EditorContent editor={editor} />
+                  </div>
                 </div>
 
                 <div className="flex gap-4 pt-4">
@@ -260,22 +240,23 @@ export default function EmpoweringTalks() {
         )}
       </AnimatePresence>
 
-      {/* --- WEBINAR SIGNUP MODAL --- */}
+      {/* --- MODAL: ANNOUNCEMENT HISTORY --- */}
       <AnimatePresence>
-        {isModalOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white w-full max-w-lg rounded-[2.5rem] p-10 relative shadow-2xl">
-              <button onClick={() => setIsModalOpen(false)} className="absolute top-8 right-8 text-gray-400 hover:text-black"><X size={24}/></button>
-              {signupType === 'choice' && (
-                <div className="text-center">
-                  <h2 className="text-3xl font-bold mb-2">Join a Session</h2>
-                  <p className="text-gray-500 mb-8 font-medium">Choose your preferred format</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <ChoiceCard icon={<Video className="text-blue-500"/>} title="Online" onClick={() => setSignupType('online')} />
-                    <ChoiceCard icon={<MapPin className="text-green-500"/>} title="In Person" onClick={() => setSignupType('inPerson')} />
+        {showHistoryModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white w-full max-w-2xl max-h-[80vh] rounded-[3rem] p-10 overflow-y-auto relative text-black">
+              <button onClick={() => setShowHistoryModal(false)} className="absolute top-8 right-8 text-gray-400 hover:text-black font-black"><X size={32}/></button>
+              <h2 className="text-3xl font-black mb-8 italic text-gray-900 uppercase">Archive.</h2>
+              <div className="space-y-8">
+                {announcements.map((item) => (
+                  <div key={item.id} className="border-b border-gray-100 pb-8">
+                    <span className="text-[10px] font-black text-orange-400 tracking-[0.2em]">{new Date(item.created_at).toLocaleDateString()}</span>
+                    <h3 className="text-2xl font-black text-gray-900 mt-1 uppercase">{item.title}</h3>
+                    <div className="mt-4 text-gray-600 leading-relaxed prose max-w-none" dangerouslySetInnerHTML={{ __html: item.content }} />
+                    {isAdmin && <button onClick={() => handleDeleteAnnouncement(item.id)} className="text-red-500 text-[10px] font-black mt-6 flex items-center gap-1 uppercase tracking-widest border border-red-100 px-3 py-1 rounded-lg hover:bg-red-50"><Trash2 size={12}/> Remove</button>}
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </motion.div>
           </motion.div>
         )}

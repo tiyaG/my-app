@@ -4,24 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Users, BookOpen, Slack, 
-  ArrowLeft, Zap, MessageCircle, X, Edit3, User, Hash, Trash2, LogOut 
+  ArrowLeft, Zap, MessageCircle, X, Edit3, User, Hash, Trash2, LogOut,
+  Bold, Italic, List
 } from 'lucide-react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
-import { supabase } from '@/lib/supabase'; // We now use your central messenger
+import { supabase } from '@/lib/supabase';
 
-const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
-import 'react-quill-new/dist/quill.snow.css';
-
-const quillModules = {
-  toolbar: [
-    [{ 'header': [1, 2, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ 'color': [] }, { 'background': [] }],
-    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-    ['clean']
-  ],
-};
+// --- TIPTAP IMPORTS ---
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 
 export default function CommunityPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,12 +26,34 @@ export default function CommunityPage() {
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('Intelligence');
 
-  // --- NEW: AUTH GUARD & USER CHECK ---
+  // --- TIPTAP EDITOR INITIALIZATION ---
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: '',
+    onUpdate: ({ editor }) => {
+      setContent(editor.getHTML());
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm focus:outline-none max-w-none p-6 min-h-[250px] text-black bg-white rounded-b-2xl',
+      },
+    },
+  });
+
+  // Sync editor content when modal opens
+  useEffect(() => {
+    if (isModalOpen && editor) {
+      editor.commands.setContent('');
+      setContent('');
+    }
+  }, [isModalOpen, editor]);
+
+  // --- AUTH GUARD & USER CHECK ---
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        window.location.href = '/login'; // Kick out if not logged in
+        window.location.href = '/login';
       } else {
         setUserEmail(user.email ?? 'Anonymous');
         fetchArticles();
@@ -58,9 +71,8 @@ export default function CommunityPage() {
   };
 
   const handlePublish = async () => {
-    if (!title || !content) return alert("Please fill in all fields!");
+    if (!title || !content || content === '<p></p>') return alert("Please fill in all fields!");
     
-    // Outcome: author is automatically set to the logged-in user's email
     const { error } = await supabase
       .from('articles')
       .insert([{ title, author: userEmail, content, category }]);
@@ -70,7 +82,8 @@ export default function CommunityPage() {
     } else {
       setIsModalOpen(false);
       fetchArticles();
-      setTitle(''); setContent('');
+      setTitle(''); 
+      setContent('');
     }
   };
 
@@ -80,7 +93,6 @@ export default function CommunityPage() {
   };
 
   const handleDelete = async (id: string, articleAuthor: string) => {
-    // Security check: Compare logged in email with article author email
     if (userEmail === articleAuthor) {
       if (confirm("Are you sure you want to delete your insight?")) {
         const { error } = await supabase.from('articles').delete().eq('id', id);
@@ -99,15 +111,6 @@ export default function CommunityPage() {
 
   return (
     <main className="min-h-screen bg-[#FDFCFE] font-sans">
-      <style jsx global>{`
-        .ql-editor { color: black !important; font-size: 16px; min-height: 200px; }
-        .ql-container { border-bottom-left-radius: 1rem; border-bottom-right-radius: 1rem; background: white; }
-        .ql-toolbar { border-top-left-radius: 1rem; border-top-right-radius: 1rem; background: #f9fafb; border-color: #f3f4f6 !important; }
-        .article-render-area { color: black !important; line-height: 1.8; }
-        .article-render-area p { margin-bottom: 1.5rem; }
-        .article-render-area h1, .article-render-area h2 { font-weight: 800; margin-top: 2rem; }
-      `}</style>
-
       {/* HEADER SECTION */}
       <div className="bg-orange-500 p-8 md:p-12 text-white shadow-2xl shadow-orange-200">
         <div className="max-w-6xl mx-auto">
@@ -115,7 +118,6 @@ export default function CommunityPage() {
             <Link href="/" className="inline-flex items-center gap-2 text-orange-100 font-bold hover:text-white transition-all group">
               <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" /> BACK TO DASHBOARD
             </Link>
-            {/* Displaying the logged in user's profile info */}
             <div className="flex items-center gap-4 bg-orange-600 px-4 py-2 rounded-full border border-orange-400">
                <User size={16} />
                <span className="text-xs font-black uppercase tracking-tighter">{userEmail}</span>
@@ -144,7 +146,7 @@ export default function CommunityPage() {
               <input 
                 type="text" 
                 placeholder="Search articles..." 
-                className="w-full pl-16 pr-6 py-6 bg-white rounded-[2rem] shadow-xl shadow-gray-100 border-2 border-transparent focus:border-orange-500 outline-none font-bold text-lg transition-all"
+                className="w-full pl-16 pr-6 py-6 bg-white rounded-[2rem] shadow-xl shadow-gray-100 border-2 border-transparent focus:border-orange-500 outline-none font-bold text-lg transition-all text-black"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -169,10 +171,9 @@ export default function CommunityPage() {
                       <p className="text-gray-400 font-bold text-sm mt-1">By {art.author}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button onClick={() => setSelectedArticle(art)} className="flex items-center gap-2 bg-gray-50 hover:bg-black hover:text-white px-6 py-3 rounded-xl font-bold transition-all text-sm">
+                        <button onClick={() => setSelectedArticle(art)} className="flex items-center gap-2 bg-gray-50 hover:bg-black hover:text-white px-6 py-3 rounded-xl font-bold transition-all text-sm text-black">
                             Read More <Zap size={14} />
                         </button>
-                        {/* Only show trash icon if you are the author */}
                         {userEmail === art.author && (
                           <button onClick={() => handleDelete(art.id, art.author)} className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
                               <Trash2 size={18} />
@@ -202,7 +203,7 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      {/* PUBLISH MODAL */}
+      {/* PUBLISH MODAL (TIPTAP VERSION) */}
       <AnimatePresence>
         {isModalOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
@@ -216,13 +217,12 @@ export default function CommunityPage() {
               </div>
               
               <div className="p-10 space-y-8 overflow-y-auto">
-                <input type="text" placeholder="Article Title..." className="w-full text-5xl font-black outline-none placeholder:text-gray-200 text-black" value={title} onChange={e => setTitle(e.target.value)} />
+                <input type="text" placeholder="Article Title..." className="w-full text-5xl font-black outline-none placeholder:text-gray-200 text-black bg-transparent" value={title} onChange={e => setTitle(e.target.value)} />
                 
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="flex-1 relative">
                     <User className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    {/* Fixed Display of the user email (No more typing author name!) */}
-                    <div className="w-full pl-14 pr-4 py-5 bg-gray-100 rounded-2xl font-bold text-gray-500 cursor-not-allowed border-none"> Posting as: {userEmail}</div>
+                    <div className="w-full pl-14 pr-4 py-5 bg-gray-100 rounded-2xl font-bold text-gray-500 border-none"> Posting as: {userEmail}</div>
                   </div>
                   <div className="relative">
                     <Hash className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -232,9 +232,14 @@ export default function CommunityPage() {
                   </div>
                 </div>
 
-                <div className="border-t border-gray-100 pt-8">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Article Content</p>
-                  <ReactQuill theme="snow" value={content} onChange={setContent} modules={quillModules} className="h-72 mb-16 rounded-2xl" />
+                <div className="border border-gray-100 rounded-2xl overflow-hidden">
+                   {/* TOOLBAR */}
+                  <div className="flex gap-2 p-3 bg-gray-50 border-b border-gray-100">
+                    <button onClick={() => editor?.chain().focus().toggleBold().run()} className={`p-2 rounded ${editor?.isActive('bold') ? 'bg-orange-100 text-orange-600' : 'text-gray-400'}`}><Bold size={18}/></button>
+                    <button onClick={() => editor?.chain().focus().toggleItalic().run()} className={`p-2 rounded ${editor?.isActive('italic') ? 'bg-orange-100 text-orange-600' : 'text-gray-400'}`}><Italic size={18}/></button>
+                    <button onClick={() => editor?.chain().focus().toggleBulletList().run()} className={`p-2 rounded ${editor?.isActive('bulletList') ? 'bg-orange-100 text-orange-600' : 'text-gray-400'}`}><List size={18}/></button>
+                  </div>
+                  <EditorContent editor={editor} />
                 </div>
               </div>
 
@@ -258,7 +263,8 @@ export default function CommunityPage() {
                 <div className="p-10 md:p-16 overflow-y-auto">
                     <h1 className="text-5xl font-black text-gray-900 leading-tight mb-4 italic tracking-tighter">{selectedArticle.title}</h1>
                     <p className="text-gray-400 font-bold text-lg mb-10">By {selectedArticle.author}</p>
-                    <div className="article-render-area ql-editor" style={{ padding: 0 }} dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+                    {/* Rendered content with tailwind prose for clean styling */}
+                    <div className="prose prose-lg max-w-none text-black font-medium" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
                 </div>
                 <div className="p-10 border-t border-gray-100 flex justify-end bg-gray-50/50">
                     <button onClick={() => setSelectedArticle(null)} className="bg-black text-white px-10 py-4 rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-orange-600 transition-all">Close</button>
