@@ -13,7 +13,7 @@ export default function ProfessionalProfile() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // FORM STATES: These hold your data so it doesn't disappear
+  // FORM STATES
   const [fullName, setFullName] = useState('');
   const [location, setLocation] = useState('');
   const [phone, setPhone] = useState('');
@@ -22,6 +22,7 @@ export default function ProfessionalProfile() {
   const [instagram, setInstagram] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState('apple');
   const [industrySearch, setIndustrySearch] = useState('');
+  const [roleTitle, setRoleTitle] = useState('Active Member'); // New state for Status
   
   const [isSaved, setIsSaved] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -35,10 +36,9 @@ export default function ProfessionalProfile() {
           id: user.id,
           email: user.email,
           joined: new Date(user.created_at).toLocaleDateString(),
-          status: "Active Member"
         });
 
-        // FETCH SAVED DATA FROM SUPABASE
+        // FETCH SAVED DATA INCLUDING ROLE AND SOCIALS
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
@@ -52,6 +52,9 @@ export default function ProfessionalProfile() {
           setWebsite(profile.website || '');
           setIndustrySearch(profile.industry || '');
           setSelectedAvatar(profile.avatar_url || 'apple');
+          setRoleTitle(profile.role_title || 'Active Member'); // Pulls from your new column
+          setLinkedin(profile.linkedin || ''); // Pulls saved LinkedIn
+          setInstagram(profile.instagram || ''); // Pulls saved Instagram
         }
       } else {
         window.location.href = '/login';
@@ -61,7 +64,6 @@ export default function ProfessionalProfile() {
     fetchProfileData();
   }, []);
 
-  // THE SAVE FUNCTION: This talks to your 'profiles' table
   const handleUpdateProfile = async () => {
     setLoading(true);
     const { error } = await supabase
@@ -74,6 +76,8 @@ export default function ProfessionalProfile() {
         website: website,
         industry: industrySearch,
         avatar_url: selectedAvatar,
+        linkedin: linkedin,    // Saves LinkedIn to DB
+        instagram: instagram,  // Saves Instagram to DB
         updated_at: new Date(),
       });
 
@@ -105,13 +109,12 @@ export default function ProfessionalProfile() {
   const industries = ["Computer Science", "Artificial Intelligence", "Cybersecurity", "Data Science", "Agriculture Technology", "Biotechnology", "FinTech", "Software Engineering", "UI/UX Design"];
   const filteredIndustries = useMemo(() => industries.filter(i => i.toLowerCase().includes(industrySearch.toLowerCase())), [industrySearch]);
 
-  if (loading && !user) return <div className="min-h-screen flex items-center justify-center font-black italic text-orange-500">SYNCING DATA...</div>;
+  if (loading && !user) return <div className="min-h-screen flex items-center justify-center font-black italic text-orange-500 tracking-tighter text-3xl">SYNCING IDENTITY...</div>;
 
   return (
     <main className="min-h-screen bg-[#FDFCFE] relative overflow-hidden pb-20">
       <div className="absolute top-[-5%] left-[-5%] w-[40%] h-[40%] bg-orange-100/30 rounded-full blur-[100px]" />
-      <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-blue-100/30 rounded-full blur-[100px]" />
-
+      
       <div className="relative z-10 max-w-5xl mx-auto px-6 pt-12">
         <div className="flex justify-between items-start mb-8">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
@@ -143,10 +146,20 @@ export default function ProfessionalProfile() {
                </div>
             </div>
 
-            <div className="bg-orange-500 p-8 rounded-[2.5rem] text-white shadow-lg shadow-orange-200">
-               <Sparkles className="mb-4" />
-               <h3 className="text-xl font-bold mb-1">Status: {user?.status}</h3>
-               <p className="text-orange-100 text-sm">Joined: {user?.joined}</p>
+            {/* UPDATED STATUS BOX WITH SPARKLE AND DYNAMIC ROLE */}
+            <div className="bg-orange-500 p-8 rounded-[2.8rem] shadow-xl mt-6 relative overflow-hidden group">
+              <div className="absolute top-4 left-4 text-orange-200 opacity-40">
+                <Sparkles size={24} />
+              </div>
+
+              <div className="relative z-10">
+                <h2 className="text-white text-3xl font-black uppercase italic tracking-tighter leading-none">
+                  Status: {roleTitle}
+                </h2>
+                <p className="text-orange-100/60 text-[9px] font-bold uppercase mt-4 tracking-widest">
+                  Joined: {user?.joined || '1/19/2026'}
+                </p>
+              </div>
             </div>
           </div>
 
